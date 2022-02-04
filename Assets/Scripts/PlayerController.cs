@@ -2,62 +2,75 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public InputMaster input;
-    public Transform cam;
-    public float mouseSensitivity = .2f;
-    public float speed = 6f;
-    public float gravity = 30f;
-    public float jumpPower = 10f;
-    public LayerMask groundMask;
+	InputMaster input;
 
-    Vector2 inputVector;
-    Vector2 mouseVector;
-    Vector3 moveVector;
-    float xRotation = 0f;
-    Vector3 velocity;
-    bool isGrounded;
+	[SerializeField] private float jumpForce = 400f;
+	[SerializeField] private float movementSmoothing = .05f;
+	[SerializeField] private bool airControl = true;
+	[SerializeField] private LayerMask groundMask;
+	[SerializeField] private Transform groundCheck;
+	[SerializeField] private Transform ceilingCheck;
 
-    private void Awake()
-    {
-        input = new InputMaster();
-        input.Player.Move.performed += ctx => inputVector = ctx.ReadValue<Vector2>();
-        input.Player.Mouse.performed += ctx => mouseVector = ctx.ReadValue<Vector2>();
-        input.Player.Jump.performed += _ => Jump();
-    }
+	float horizontalVector;
+	private bool grounded;
+	private Rigidbody2D rb;
+	private bool facingRight = true;
+	private Vector3 velocity = Vector3.zero;
 
-    private void Start()
-    {
-        Cursor.lockState = CursorLockMode.Locked;
-    }
+	private void Awake()
+	{
+		rb = GetComponent<Rigidbody2D>();
+		input = new InputMaster();
+		input.Player.Move.performed += _ctx => horizontalVector = _ctx.ReadValue<float>();
+		input.Player.Jump.performed += _ => Jump();
+	}
 
-    private void Update()
-    {
-        isGrounded = Physics.CheckSphere(transform.position + Vector3.down, .25f, groundMask);
-        if (isGrounded && velocity.y < 0)
-        {
-            velocity.y = -2f;
-        }
+	private void FixedUpdate()
+	{
+		print(horizontalVector);
 
-        velocity.y -= gravity * Time.deltaTime;
-        moveVector = new Vector3(inputVector.x, inputVector.y, 0);
-        transform.position += (moveVector + velocity) * Time.deltaTime;
-    }
+		grounded = false;
 
-    private void Jump()
-    {
-        if (isGrounded) velocity.y = jumpPower;
-    }
+		Collider2D[] colliders = Physics2D.OverlapCircleAll(groundCheck.position, .2f, groundMask);
+		for (int i = 0; i < colliders.Length; i++)
+		{
+			if (colliders[i].gameObject != gameObject) { grounded = true; }
+		}
 
-    private void OnEnable()
-    {
-        input.Enable();
-    }
+		if (grounded || airControl)
+		{
+			Vector3 targetVelocity = new Vector2(horizontalVector * 10f, rb.velocity.y);
+			rb.velocity = Vector3.SmoothDamp(rb.velocity, targetVelocity, ref velocity, movementSmoothing);
 
-    private void OnDisable()
-    {
-        input.Disable();
-    }
+			if (horizontalVector > 0 && !facingRight)
+			{
+				Flip();
+			}
+			else if (horizontalVector < 0 && facingRight)
+			{
+				Flip();
+			}
+		}
+	}
+
+	private void Jump()
+	{
+		if (grounded)
+		{
+			grounded = false;
+			rb.AddForce(new Vector2(0f, jumpForce));
+		}
+	}
+
+	private void Flip()
+	{
+		facingRight = !facingRight;
+
+		Vector3 theScale = transform.localScale;
+		theScale.x *= -1;
+		transform.localScale = theScale;
+	}
+
+    private void OnEnable() { input.Enable(); }
+	private void OnDisable() { input.Disable(); }
 }
-// INPUT.PLAYER.MOVE.ACTIONTYPE = PASS THROUGH
-// INPUT.PLAYER.MOUSE.ACTIONTYPE = PASS THROUGH
-// INPUT.PLAYER.JUMP.ACTIONTYPE = BUTTON

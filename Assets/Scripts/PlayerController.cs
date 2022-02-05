@@ -3,7 +3,9 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
 	InputMaster input;
+	[SerializeField] UiController ui;
 
+	[Header("Character Parameters\n")]
 	[SerializeField] private float jumpForce = 400f;
 	[SerializeField] private float movementSmoothing = .05f;
 	[SerializeField] private bool airControl = true;
@@ -23,6 +25,7 @@ public class PlayerController : MonoBehaviour
 		input = new InputMaster();
 		input.Player.Move.performed += _ctx => horizontalVector = _ctx.ReadValue<float>();
 		input.Player.Jump.performed += _ => Jump();
+		input.Player.Pause.performed += _ => ui.TogglePauseMenu();
 	}
 
 	private void FixedUpdate()
